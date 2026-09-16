@@ -74,6 +74,10 @@ if (!reservationColumns.includes('transfer_from')) database.exec('ALTER TABLE re
 if (!reservationColumns.includes('transfer_to')) database.exec('ALTER TABLE reservations ADD COLUMN transfer_to TEXT')
 if (!reservationColumns.includes('transfer_requested_borrower')) database.exec('ALTER TABLE reservations ADD COLUMN transfer_requested_borrower TEXT')
 if (!reservationColumns.includes('transfer_requested_group')) database.exec('ALTER TABLE reservations ADD COLUMN transfer_requested_group TEXT')
+if (!reservationColumns.includes('fine_payment_status')) database.exec("ALTER TABLE reservations ADD COLUMN fine_payment_status TEXT NOT NULL DEFAULT 'Unpaid'")
+if (!reservationColumns.includes('fine_payment_requested_at')) database.exec('ALTER TABLE reservations ADD COLUMN fine_payment_requested_at TEXT')
+if (!reservationColumns.includes('fine_paid_at')) database.exec('ALTER TABLE reservations ADD COLUMN fine_paid_at TEXT')
+if (!reservationColumns.includes('fine_paid_amount')) database.exec('ALTER TABLE reservations ADD COLUMN fine_paid_amount REAL NOT NULL DEFAULT 0')
 
 const equipmentCount = database.prepare('SELECT COUNT(*) AS count FROM equipment').get().count
 if (equipmentCount === 0) {
@@ -157,6 +161,8 @@ const formatReservation = (reservation) => ({
   damageCharge: reservation.damage_charge || 0,
   totalCharges: (reservation.late_fee || 0) + (reservation.damage_charge || 0),
   amountDue: Math.max(0, (reservation.late_fee || 0) + (reservation.damage_charge || 0) - (reservation.deposit || 0)),
+  finePaymentStatus: reservation.fine_payment_status || 'Unpaid',
+  finePaidAmount: reservation.fine_paid_amount || 0,
   transferFrom: reservation.transfer_from,
   transferTo: reservation.transfer_to,
   transferRequestedBorrower: reservation.transfer_requested_borrower,
@@ -176,7 +182,7 @@ app.post('/api/admin/login', (request, response) => {
   if (request.body.password !== adminPassword) return response.status(401).json({ error: 'Admin password is incorrect.' })
   response.json({ authenticated: true })
 })
-app.get('/api/admin/requests', requireAdmin, (_request, response) => response.json(database.prepare("SELECT * FROM reservations WHERE status IN ('Pending approval', 'Return requested', 'Transfer requested') ORDER BY id DESC").all().map(formatReservation)))
+app.get('/api/admin/requests', requireAdmin, (_request, response) => response.json(database.prepare("SELECT * FROM reservations WHERE status IN ('Pending approval', 'Return requested', 'Transfer requested') OR fine_payment_status = 'Pending' ORDER BY id DESC").all().map(formatReservation)))
 app.get('/api/returns', requireAdmin, (_request, response) => response.json(database.prepare("SELECT * FROM reservations WHERE status = 'Returned' ORDER BY returned_at DESC").all().map(formatReservation)))
 app.post('/api/admin/equipment', requireAdmin, (request, response) => {
   const { productId, name, category, quantity, replacementCharge = 1000, icon = 'NEW', tone = 'blue' } = request.body
@@ -275,6 +281,17 @@ app.post('/api/reservations/:reference/return-request', (request, response) => {
   response.json({ reference: request.params.reference, status: 'Return requested', reportedDamageQuantity: damagedQuantity })
 })
 
+app.post('/api/reservations/:reference/fine-payment-request', (request, response) => {
+  const reservation = database.prepare('SELECT * FROM reservations WHERE reference = ?').get(request.params.reference)
+  if (!reservation) return response.status(404).json({ error: 'Reservation not found.' })
+  const amountDue = Math.max(0, (reservation.late_fee || 0) + (reservation.damage_charge || 0) - (reservation.deposit || 0))
+  if (amountDue <= 0) return response.status(409).json({ error: 'No outstanding fine is due for this request.' })
+  if (reservation.fine_payment_status === 'Pending') return response.status(409).json({ error: 'A fine payment request is already waiting for admin authorization.' })
+  if (reservation.fine_payment_status === 'Paid') return response.status(409).json({ error: 'This fine has already been authorized as paid.' })
+  database.prepare("UPDATE reservations SET fine_payment_status = 'Pending', fine_payment_requested_at = ? WHERE reference = ?").run(new Date().toISOString(), request.params.reference)
+  response.json({ reference: request.params.reference, status: 'Pending', amountDue })
+})
+
 app.post('/api/admin/reservations/:reference/return-approve', requireAdmin, (request, response) => {
   const reservation = database.prepare('SELECT * FROM reservations WHERE reference = ?').get(request.params.reference)
   if (!reservation) return response.status(404).json({ error: 'Reservation not found.' })
@@ -288,6 +305,15 @@ app.post('/api/admin/reservations/:reference/return-approve', requireAdmin, (req
   database.prepare("UPDATE reservations SET status = 'Returned', status_tone = 'green', returned_at = ?, late_fee = ?, damaged_quantity = ?, damage_charge = ? WHERE reference = ?").run(returnedAt, fee, damagedQuantity, damageCharge, request.params.reference)
   database.prepare('UPDATE equipment SET damaged_count = damaged_count + ? WHERE product_id = ?').run(damagedQuantity, reservation.product_id)
   response.json({ reference: request.params.reference, status: 'Returned', lateDays: daysLate(reservation.due_at, returnedAt), lateFee: fee, damagedQuantity, damageCharge, refund: Math.max(0, reservation.deposit - fee - damageCharge) })
+})
+
+app.post('/api/admin/reservations/:reference/fine-approve', requireAdmin, (request, response) => {
+  const reservation = database.prepare('SELECT * FROM reservations WHERE reference = ?').get(request.params.reference)
+  if (!reservation) return response.status(404).json({ error: 'Reservation not found.' })
+  if (reservation.fine_payment_status !== 'Pending') return response.status(409).json({ error: 'This reservation has no fine payment waiting for authorization.' })
+  const amountDue = Math.max(0, (reservation.late_fee || 0) + (reservation.damage_charge || 0) - (reservation.deposit || 0))
+  database.prepare("UPDATE reservations SET fine_payment_status = 'Paid', fine_paid_at = ?, fine_paid_amount = ? WHERE reference = ?").run(new Date().toISOString(), amountDue, request.params.reference)
+  response.json({ reference: request.params.reference, status: 'Paid', amount: amountDue })
 })
 
 app.post('/api/reservations/:reference/return', requireAdmin, (request, response) => {

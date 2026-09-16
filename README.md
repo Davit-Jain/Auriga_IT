@@ -16,6 +16,7 @@ The application provides:
 - Admin approval before equipment is issued.
 - Borrower and due-date tracking.
 - Return submission with damage reporting.
+- Fine payment submission by reservation ID with admin authorization.
 - Late fees and refundable deposit calculations.
 - Permanent inventory reduction for damaged units.
 - Admin inventory management for adding new stock.
@@ -147,6 +148,17 @@ No account or sign-up is required for a reservation.
 5. The borrower list shows that the item is awaiting admin approval.
 6. The reported damage and estimated charge are visible to the borrower and admin.
 
+### Submit a fine payment
+
+1. Click **Pay fine**.
+2. Enter the reservation request ID.
+3. The system calculates the outstanding late or damage amount.
+4. Submit the payment request.
+5. An admin opens **Admin approvals** and clicks **Authorize fine**.
+6. The reservation money section changes from pending to **Fine paid**.
+
+The borrower cannot change the amount. The amount is calculated from the database and can only be authorized by an admin.
+
 ### Admin approves a return
 
 1. Open **Admin** and enter the password again.
@@ -224,6 +236,7 @@ Public endpoints:
 - `POST /api/reservations` creates a reservation and returns a request ID.
 - `POST /api/reservations/:reference/return-request` submits an item for admin review.
 - `POST /api/reservations/:reference/transfer-request` requests an active borrower transfer.
+- `POST /api/reservations/:reference/fine-payment-request` submits an outstanding fine for admin authorization.
 
 Admin endpoints require this HTTP header:
 
@@ -242,6 +255,7 @@ Admin endpoints:
 - `POST /api/admin/reservations/:reference/approve` approves and issues a reservation.
 - `POST /api/admin/reservations/:reference/return-approve` approves a return and applies damage charges.
 - `POST /api/admin/reservations/:reference/transfer-approve` confirms a borrower transfer.
+- `POST /api/admin/reservations/:reference/fine-approve` authorizes a pending fine payment.
 
 Legacy checkout and return routes are also password protected:
 
