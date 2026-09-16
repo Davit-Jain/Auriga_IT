@@ -29,7 +29,15 @@ The application provides:
 - Frontend development server: `http://localhost:5173`
 - Backend API: `http://localhost:3000`
 
-## Run the project
+## Quick start
+
+### Requirements
+
+- Node.js 22.5 or newer (the backend uses Node's built-in `node:sqlite`).
+- npm.
+- A browser.
+
+### Install
 
 Install dependencies once:
 
@@ -41,23 +49,37 @@ cd ../backend
 npm install
 ```
 
-Start the backend in one terminal:
+### Start the application
+
+Use two terminals from the project root.
+
+Terminal 1, backend:
 
 ```bash
 cd backend
 npm run dev
 ```
 
-Start the frontend in another terminal:
+Terminal 2, frontend:
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). Vite proxies frontend `/api` requests to the backend on port `3000`.
+Open [http://localhost:5173](http://localhost:5173) in a browser. Keep both terminals running while using the application. Stop either server with `Ctrl+C`.
 
 The database is created automatically at `backend/auriga-av.sqlite`. It is ignored by git.
+
+### Check that it is running
+
+Open [http://localhost:3000/api/health](http://localhost:3000/api/health). A working backend returns:
+
+```json
+{"status":"ok","database":"connected"}
+```
+
+If the frontend cannot load data, confirm that the backend is running on port `3000` and the frontend is running on port `5173`.
 
 ## Admin access
 
@@ -89,6 +111,12 @@ This default password is suitable only for development. Use a secret environment
 | `TRIPOD-001` | Tripod | £1,000 |
 
 ## User workflow
+
+The normal user does not need an account. The basic flow is:
+
+```text
+Request equipment -> Receive request ID -> Admin approves -> Borrow equipment -> Submit equipment
+```
 
 ### Make a reservation
 
