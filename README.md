@@ -173,6 +173,16 @@ Only an authenticated admin can add equipment:
 
 New stock appears immediately in Equipment availability and can be reserved. Product IDs that do not exist are rejected, and duplicate product IDs are not allowed.
 
+Admins can also manage products that already exist:
+
+1. Open **Admin** and enter the password.
+2. Click **Manage stock**.
+3. Select an existing product.
+4. Choose **Add quantity**, **Reduce quantity**, or **Remove product**.
+5. Apply the change.
+
+Stock cannot be reduced below the number of units currently borrowed or permanently damaged. A product with reservation history cannot be deleted because deleting it would break the lending audit trail.
+
 Damaged units cannot be reserved. For example, if the room owns 10 projectors and 2 are damaged, only 8 can be offered for future reservations.
 
 ## API reference
@@ -199,6 +209,8 @@ Admin endpoints:
 - `GET /api/admin/requests` returns pending reservations, returns, and transfers.
 - `GET /api/returns` returns successfully submitted items.
 - `POST /api/admin/equipment` adds inventory.
+- `POST /api/admin/equipment/:productId/adjust` adds or reduces existing stock quantity.
+- `DELETE /api/admin/equipment/:productId` removes a product without reservation history.
 - `POST /api/admin/reservations/:reference/approve` approves and issues a reservation.
 - `POST /api/admin/reservations/:reference/return-approve` approves a return and applies damage charges.
 - `POST /api/admin/reservations/:reference/transfer-approve` confirms a borrower transfer.

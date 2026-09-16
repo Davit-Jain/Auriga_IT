@@ -26,6 +26,7 @@ function App() {
   const [showSubmit, setShowSubmit] = useState(false)
   const [showAdminLogin, setShowAdminLogin] = useState(false)
   const [showAddEquipment, setShowAddEquipment] = useState(false)
+  const [showManageStock, setShowManageStock] = useState(false)
   const [showTransfer, setShowTransfer] = useState(false)
   const [showReservations, setShowReservations] = useState(true)
   const [adminPassword, setAdminPassword] = useState('')
@@ -149,6 +150,29 @@ function App() {
     window.setTimeout(() => setNotice(''), 3500)
   }
 
+  const handleManageStock = async (event) => {
+    event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    const productId = form.get('productId')
+    const action = form.get('action')
+    let response
+    if (action === 'remove') {
+      response = await fetch(`/api/admin/equipment/${encodeURIComponent(productId)}`, { method: 'DELETE', headers: { 'x-admin-password': adminPassword } }).catch(() => null)
+    } else {
+      const amount = Number(form.get('amount'))
+      response = await fetch(`/api/admin/equipment/${encodeURIComponent(productId)}/adjust`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword }, body: JSON.stringify({ delta: action === 'reduce' ? -amount : amount }) }).catch(() => null)
+    }
+    if (!response?.ok) {
+      const error = response ? await response.json() : { error: 'The API is unavailable.' }
+      setNotice(error.error)
+      return
+    }
+    await refreshData()
+    setShowManageStock(false)
+    setNotice(action === 'remove' ? 'Equipment removed from inventory.' : 'Stock quantity updated.')
+    window.setTimeout(() => setNotice(''), 3500)
+  }
+
   const handleTransfer = async (event) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
@@ -205,7 +229,7 @@ function App() {
       <main className="main-content">
         <header className="topbar"><div className="breadcrumb">Auriga College <span>/</span> {activeTab}</div><div className="top-actions"><button className="icon-button" aria-label="Notifications">!</button><button className="avatar small">JD</button></div></header>
         <div className="page-content">
-          <section className="page-heading"><div><p className="eyebrow">WEDNESDAY, SEPTEMBER 16, 2026</p><h1>Good morning, Jordan.</h1><p className="muted">Here is what is happening in your AV room today.</p></div><div className="heading-actions"><button className="outline-button issue-button" onClick={() => setShowTransfer(true)}>Request transfer</button><button className="outline-button issue-button" onClick={() => setShowSubmit(true)}>Submit item</button><button className="primary-button" onClick={() => setShowBooking(true)}><span>+</span> New reservation</button></div></section>
+          <section className="page-heading"><div><p className="eyebrow">WEDNESDAY, SEPTEMBER 16, 2026</p><h1>Good morning, Jordan.</h1><p className="muted">Here is what is happening in your AV room today.</p></div><div className="heading-actions">{activeTab === 'Admin' && <button className="outline-button issue-button" onClick={() => setShowManageStock(true)}>Manage stock</button>}<button className="outline-button issue-button" onClick={() => setShowTransfer(true)}>Request transfer</button><button className="outline-button issue-button" onClick={() => setShowSubmit(true)}>Submit item</button><button className="primary-button" onClick={() => setShowBooking(true)}><span>+</span> New reservation</button></div></section>
 
           <section className="metric-grid">
             <div className="metric-card"><div className="metric-top"><span>Items in circulation</span><span className="metric-icon blue-icon">+</span></div><strong>{activeItems}</strong><p><b className="green-text">Live</b> from database</p></div>
@@ -231,6 +255,7 @@ function App() {
       {showSubmit && <div className="modal-backdrop" onClick={() => setShowSubmit(false)}><div className="modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setShowSubmit(false)}>×</button><p className="eyebrow">RETURN EQUIPMENT</p><h2>Submit an item</h2><p className="muted">Enter the request ID and report any damaged units.</p><form onSubmit={handleSubmit}><label>Request ID<input name="requestId" required placeholder="e.g. AV-1054" autoCapitalize="characters" /></label><label>Damaged units<input name="damagedQuantity" type="number" min="0" defaultValue="0" required /></label><div className="damage-question">Enter 0 if all units are in good condition.</div><div className="modal-actions"><button type="button" className="outline-button" onClick={() => setShowSubmit(false)}>Cancel</button><button type="submit" className="primary-button">Submit item</button></div></form></div></div>}
       {showAdminLogin && <div className="modal-backdrop" onClick={() => setShowAdminLogin(false)}><div className="modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setShowAdminLogin(false)}>×</button><p className="eyebrow">RESTRICTED AREA</p><h2>Admin sign in</h2><p className="muted">Enter the admin password to review and approve requests.</p><form onSubmit={handleAdminLogin}><label>Password<input name="password" type="password" required autoFocus placeholder="Admin password" /></label><div className="modal-actions"><button type="button" className="outline-button" onClick={() => setShowAdminLogin(false)}>Cancel</button><button type="submit" className="primary-button">Unlock admin</button></div></form></div></div>}
       {showAddEquipment && <div className="modal-backdrop" onClick={() => setShowAddEquipment(false)}><div className="modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setShowAddEquipment(false)}>×</button><p className="eyebrow">INVENTORY MANAGEMENT</p><h2>Add equipment</h2><p className="muted">Add new stock with its own product ID and replacement charge.</p><form onSubmit={handleAddEquipment}><label>Product ID<input name="productId" required placeholder="e.g. CAM-002" /></label><label>Item name<input name="name" required placeholder="e.g. HDMI cable" /></label><div className="form-row"><label>Category<input name="category" required placeholder="Accessories" /></label><label>Quantity<input name="quantity" min="1" required type="number" /></label></div><label>Replacement charge (£)<input name="replacementCharge" min="0" defaultValue="1000" required type="number" /></label><div className="modal-actions"><button type="button" className="outline-button" onClick={() => setShowAddEquipment(false)}>Cancel</button><button type="submit" className="primary-button">Add to inventory</button></div></form></div></div>}
+      {showManageStock && <div className="modal-backdrop" onClick={() => setShowManageStock(false)}><div className="modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setShowManageStock(false)}>×</button><p className="eyebrow">INVENTORY MANAGEMENT</p><h2>Manage existing stock</h2><p className="muted">Add or reduce quantity for an existing product, or remove it if it has no history.</p><form onSubmit={handleManageStock}><label>Product<select name="productId">{equipment.map((item) => <option key={item.product_id} value={item.product_id}>{item.name} ({item.product_id})</option>)}</select></label><label>Action<select name="action"><option value="add">Add quantity</option><option value="reduce">Reduce quantity</option><option value="remove">Remove product</option></select></label><label>Quantity<input name="amount" min="1" defaultValue="1" required type="number" /></label><div className="damage-question">Quantity cannot be reduced below borrowed or damaged units. Products with reservation history cannot be removed.</div><div className="modal-actions"><button type="button" className="outline-button" onClick={() => setShowManageStock(false)}>Cancel</button><button type="submit" className="primary-button">Apply change</button></div></form></div></div>}
       {showTransfer && <div className="modal-backdrop" onClick={() => setShowTransfer(false)}><div className="modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setShowTransfer(false)}>×</button><p className="eyebrow">ACTIVE RESERVATION</p><h2>Transfer borrower</h2><p className="muted">The original due date, quantity, and availability remain unchanged.</p><form onSubmit={handleTransfer}><label>Request ID<input name="requestId" required placeholder="e.g. AV-1054" /></label><label>New borrower<input name="borrower" required placeholder="e.g. Sam Taylor" /></label><label>Group or club<input name="groupName" placeholder="Optional" /></label><div className="modal-actions"><button type="button" className="outline-button" onClick={() => setShowTransfer(false)}>Cancel</button><button type="submit" className="primary-button">Request transfer</button></div></form></div></div>}
       {notice && <div className="toast">✓ {notice}</div>}
     </div>

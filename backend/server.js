@@ -185,6 +185,25 @@ app.post('/api/admin/equipment', requireAdmin, (request, response) => {
   database.prepare('INSERT INTO equipment (name, category, icon, available, total, status, tone, product_id, damaged_count, replacement_charge) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)').run(name, category, icon, Number(quantity), Number(quantity), 'Available', tone, productId, Number(replacementCharge))
   response.status(201).json({ productId, name, quantity: Number(quantity) })
 })
+app.post('/api/admin/equipment/:productId/adjust', requireAdmin, (request, response) => {
+  const equipment = database.prepare('SELECT * FROM equipment WHERE product_id = ?').get(request.params.productId)
+  const delta = Number(request.body?.delta)
+  if (!equipment) return response.status(404).json({ error: 'Product not found.' })
+  if (!Number.isInteger(delta) || delta === 0) return response.status(400).json({ error: 'Stock adjustment must be a non-zero whole number.' })
+  const used = database.prepare("SELECT COALESCE(SUM(quantity), 0) AS quantity FROM reservations WHERE product_id = ? AND status IN ('Checked out', 'Overdue', 'Return requested', 'Transfer requested')").get(request.params.productId).quantity
+  const nextTotal = equipment.total + delta
+  if (nextTotal < used + equipment.damaged_count) return response.status(409).json({ error: `Cannot reduce stock below ${used + equipment.damaged_count} units currently borrowed or damaged.` })
+  database.prepare('UPDATE equipment SET total = ?, available = ? WHERE product_id = ?').run(nextTotal, Math.max(0, nextTotal - equipment.damaged_count - used), request.params.productId)
+  response.json({ productId: request.params.productId, total: nextTotal, used, damaged: equipment.damaged_count })
+})
+app.delete('/api/admin/equipment/:productId', requireAdmin, (request, response) => {
+  const equipment = database.prepare('SELECT id FROM equipment WHERE product_id = ?').get(request.params.productId)
+  if (!equipment) return response.status(404).json({ error: 'Product not found.' })
+  const history = database.prepare('SELECT COUNT(*) AS count FROM reservations WHERE product_id = ?').get(request.params.productId).count
+  if (history > 0) return response.status(409).json({ error: 'This product has reservation history and cannot be removed.' })
+  database.prepare('DELETE FROM equipment WHERE product_id = ?').run(request.params.productId)
+  response.json({ productId: request.params.productId, removed: true })
+})
 app.post('/api/reservations/:reference/transfer-request', (request, response) => {
   const reservation = database.prepare('SELECT * FROM reservations WHERE reference = ?').get(request.params.reference)
   const { borrower, groupName } = request.body || {}
