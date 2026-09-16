@@ -1763,3 +1763,196 @@ It explains:
 - Overall design result
 
 Made changes.
+now push the project to the github
+
+I’ll inspect the repository status, current branch, and configured remote first. If a GitHub remote and authentication are already available, I’ll commit the project changes and push them; if not, I’ll stop at the exact missing prerequisite rather than guessing a destination.
+
+Ran terminal command:  git status --short --branch
+
+Ran terminal command:  git remote -v
+
+Ran terminal command:  git log -1 --oneline
+
+A GitHub remote is configured as `Davit-Jain/Auriga_IT`, and the branch is `main` tracking `origin/main`. Before pushing, I found generated SQLite WAL files staged alongside the source; I’m checking the staged diff and will exclude those runtime artifacts so the commit contains the application, not live database sidecars.
+
+Ran terminal command:  cd /workspaces/Auriga_IT && git diff --cached --stat && git diff --stat
+
+Ran terminal command:  cd /workspaces/Auriga_IT && sed -n '1,120p' .gitignore && printf '\n--- frontend/.gitignore ---\n' && sed -n '1,120p' frontend/.gitignore
+
+Ran terminal command:  cd /workspaces/Auriga_IT && git status --short
+
+The staged scope is the full project, including documentation and lockfiles, which is appropriate for the requested GitHub push. I’m updating the root ignore rules to exclude all SQLite runtime files, removing only the staged WAL sidecars from Git tracking, then I’ll commit and push `main`.
+
+Generating patch (6 lines) in 
+
+
+```
+
+```
+
+
+Ran terminal command:  cd /workspaces/Auriga_IT && git rm --cached backend/auriga-av.sqlite-shm backend/auriga-av.sqlite-wal && git add .gitignore && git status --short
+
+Ran terminal command:  cd /workspaces/Auriga_IT && git diff --cached --check && git commit -m "Build AV room lending system"
+
+The commit was blocked only by trailing whitespace inside the existing `AI_LOGS.md`; the project files themselves are staged. I’m preserving that log unchanged and committing without treating its historical formatting as a blocker, then I’ll push to the configured GitHub remote.
+
+Ran terminal command:  cd /workspaces/Auriga_IT && git commit -m "Build AV room lending system"
+
+Ran terminal command:  cd /workspaces/Auriga_IT && git push origin main
+
+The project has been pushed successfully to `Davit-Jain/Auriga_IT` on `main`. I’m checking the final working tree and remote commit one last time so I can report the exact published revision and any remaining local changes.
+
+Ran terminal command:  cd /workspaces/Auriga_IT && git status --short --branch
+
+Ran terminal command:  cd /workspaces/Auriga_IT && git log -1 --oneline --decorate
+
+The project has been pushed successfully to GitHub:
+
+[https://github.com/Davit-Jain/Auriga_IT](https://github.com/Davit-Jain/Auriga_IT)
+
+Published commit:
+
+```text
+abc97f5 Build AV room lending system
+```
+
+The working tree is clean and `main` is synchronized with `origin/main`.
+
+Made changes.
+ok now add one more feature that mean that item is existing so admin a=can remove the item or add the quantity and reduce the quantity of the items given
+Ran terminal command:  cd /workspaces/Auriga_IT/backend && npm start
+
+Ran terminal command:  node --input-type=module - <<'NODE'
+const api = 'http://127.0.0.1:3000'
+const admin = { 'content-type': 'application/json', 'x-admin-password': 'admin' }
+const call = async (path, options = {}) => { const response = await fetch(`${api}${path}`, { headers: { 'content-type': 'application/json', ...options.headers }, ...options }); return { status: response.status, body: await response.json() } }
+const denied = await call('/api/admin/equipment/DSLR-001/adjust', { method: 'POST', body: JSON.stringify({ delta: 1 }) })
+const before = (await call('/api/equipment')).body.find((item) => item.product_id === 'DSLR-001')
+const added = await call('/api/admin/equipment/DSLR-001/adjust', { method: 'POST', headers: admin, body: JSON.stringify({ delta: 1 }) })
+const afterAdd = (await call('/api/equipment')).body.find((item) => item.product_id === 'DSLR-001')
+const blocked = await call('/api/admin/equipment/DSLR-001/adjust', { method: 'POST', headers: admin, body: JSON.stringify({ delta: -(afterAdd.total + 1) }) })
+console.log(JSON.stringify({ denied, added, before: before.total, afterAdd: afterAdd.total, blocked }, null, 2))
+await call('/api/admin/equipment/DSLR-001/adjust', { method: 'POST', headers: admin, body: JSON.stringify({ delta: -1 }) })
+NODE
+
+Inventory controls are working: unauthenticated adjustment returns `401`, adding one DSLR unit changes total stock from `4` to `5`, and an unsafe reduction returns `409` because the system protects borrowed/damaged units. I restored the temporary test quantity and am documenting the new Admin workflow.
+
+Generating patch (21 lines) in 
+
+
+```
+
+```
+
+
+Ran terminal command:  cd /workspaces/Auriga_IT && git status --short --branch
+
+Checked , , no problems found
+
+Added existing inventory management for admins.
+
+### New Admin feature: Manage stock
+
+Admins can now:
+
+- Add quantity to an existing product.
+- Reduce quantity from an existing product.
+- Remove a product from inventory.
+
+### Safety rules
+
+- Admin password is required.
+- Stock cannot be reduced below borrowed or damaged units.
+- Products with reservation history cannot be deleted.
+- Inventory updates immediately reflect in the frontend.
+
+### New API routes
+
+- `POST /api/admin/equipment/:productId/adjust`
+- `DELETE /api/admin/equipment/:productId`
+
+Validation passed:
+
+- Unauthorized adjustment returns `401`.
+- Stock increase works.
+- Unsafe reduction returns `409`.
+- Frontend build passed.
+- No code errors found.
+
+The changes are currently local and have not been pushed yet.
+
+Made changes. 
+in this aslo add the the button where the user can submit the fine via the id and admin autorize it
+Ran terminal command:  cd /workspaces/Auriga_IT/backend && npm start
+
+Ran terminal command:  node --input-type=module - <<'NODE'
+const api = 'http://127.0.0.1:3000'
+const admin = { 'content-type': 'application/json', 'x-admin-password': 'admin' }
+const call = async (path, options = {}) => { const response = await fetch(`${api}${path}`, { headers: { 'content-type': 'application/json', ...options.headers }, ...options }); return { status: response.status, body: await response.json() } }
+const created = await call('/api/reservations', { method: 'POST', body: JSON.stringify({ borrower: 'Fine Payment Test', productId: 'MIC-001', quantity: 1, startDate: '2026-11-10', returnDate: '2026-11-11' }) })
+const reference = created.body.reference
+await call(`/api/admin/reservations/${reference}/approve`, { method: 'POST', headers: admin })
+await call(`/api/reservations/${reference}/return-request`, { method: 'POST', body: JSON.stringify({ damagedQuantity: 1 }) })
+const returned = await call(`/api/admin/reservations/${reference}/return-approve`, { method: 'POST', headers: admin, body: JSON.stringify({ damagedQuantity: 1 }) })
+const payment = await call(`/api/reservations/${reference}/fine-payment-request`, { method: 'POST', body: '{}' })
+const queue = (await call('/api/admin/requests', { headers: { 'x-admin-password': 'admin' } })).body.find((item) => item.id === reference)
+const authorized = await call(`/api/admin/reservations/${reference}/fine-approve`, { method: 'POST', headers: admin, body: '{}' })
+console.log(JSON.stringify({ created, returned, payment, queuedFine: { status: queue?.finePaymentStatus, amount: queue?.amountDue }, authorized }, null, 2))
+const { DatabaseSync } = await import('node:sqlite')
+const db = new DatabaseSync('/workspaces/Auriga_IT/backend/auriga-av.sqlite')
+db.prepare('DELETE FROM reservations WHERE reference = ?').run(reference)
+db.prepare("UPDATE equipment SET damaged_count = MAX(0, damaged_count - 1) WHERE product_id = 'MIC-001'").run()
+db.close()
+NODE
+
+The fine workflow passed end to end: request `AV-1063` produced a `£1,000` outstanding amount, appeared in the Admin queue as pending, and was authorized successfully. I’m adding the fine-payment instructions and API routes to the README, then I’ll run the final formatting check.
+
+Generating patch (29 lines) in 
+
+
+```
+
+```
+
+
+Ran terminal command:  cd /workspaces/Auriga_IT && git diff --check -- README.md backend/server.js frontend/src/App.jsx
+
+Ran terminal command:  cd /workspaces/Auriga_IT/frontend && npm run build
+
+Checked , , no problems found
+
+Added the fine payment workflow.
+
+### Borrower
+
+- New **Pay fine** button.
+- User enters the reservation ID.
+- System calculates the outstanding late/damage amount automatically.
+- User submits the payment request.
+
+### Admin
+
+- Fine payment appears in **Admin approvals**.
+- Admin sees the reservation ID and amount.
+- Admin clicks **Authorize fine**.
+- Reservation changes to **Fine paid**.
+
+### Backend
+
+Added:
+
+- `POST /api/reservations/:reference/fine-payment-request`
+- `POST /api/admin/reservations/:reference/fine-approve`
+
+The borrower cannot edit the fine amount. It is calculated from the database and requires admin authorization.
+
+Validation passed:
+
+- Fine request lifecycle tested successfully.
+- `£1,000` damage fine was calculated correctly.
+- Admin authorization worked.
+- Frontend build passed.
+- No code errors found.
+
+Made changes.
